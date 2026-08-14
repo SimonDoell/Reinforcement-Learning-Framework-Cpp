@@ -1,0 +1,7 @@
+Diagnostics:
+  Suppress:
+    - unused-includes
+    - unused-variable
+    - unused-parameter
+    - unused-function
+    - unused-private-field

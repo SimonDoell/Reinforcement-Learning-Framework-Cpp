@@ -1,0 +1,11 @@
+[
+  {
+    "label": "Build and Run",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "command": "./scripts/build-release.sh && ./build/Boilerplate",
+    "use_new_terminal": false,
+    "reveal": "always",
+    "hide": "on_success",
+    "show_summary": false
+  }
+]
