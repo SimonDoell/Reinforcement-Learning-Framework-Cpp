@@ -2,6 +2,7 @@
 #include <SFML/Graphics.hpp>
 #include "Config.hpp"
 #include "NeuralNetwork.hpp"
+#include "RL.hpp"
 
 constexpr float lerp(float percentage, float from, float to) {
     return from + (to - from) * percentage;
@@ -50,126 +51,211 @@ struct Line : public sf::Drawable {
 
 
 
-size_t cells = 25;
 
-struct RewardReturn {
-    float reward;
-    bool done;
-};
 
 struct State {
-    sf::Vector2u finalPos;
-    sf::Vector2u agentPos;
-
-    static constexpr uint32_t input_dims = 4;
-
-    Matrix networkInput() const {
-        Matrix input = Matrix::Vector(input_dims);
-        input = {
-            (float)finalPos.x/(float)cells,
-            (float)finalPos.y/(float)cells,
-            (float)agentPos.x/(float)cells,
-            (float)agentPos.y/(float)cells
-        };
-        return input;
-    }
+    sf::Vector2i agent_pos;
+    sf::Vector2i target_pos;
 };
-
 
 struct Action {
-    static constexpr uint32_t output_dims = 4;
+        enum class Direction : uint8_t {Up = 0, Down = 1, Left = 2, Right = 3};
+
+    public:
+        Direction direction;
+
+        static Action random() {
+            return Action{.direction = (Direction)(rand() % 4)};
+        }
 };
 
-using LinearType = LinearLayer<XavierInit, SGD>;
-
-
-struct Environment : public sf::Drawable {
+struct Agent {
+        using StepTp = Step<State, Action>;
+        using LinearType = LinearLayer<XavierInit, Adam<>>;
+    
     public:
-        sf::Vector2f pos  = sf::Vector2f(0, 0);
-        sf::Vector2f size = sf::Vector2f(100, 100);
-        State state;
-        sf::Vector2u lastAgentPos = {1, 1};
+        Agent() {
+            actor.learning_rate = 0.00001f;
+        }
 
-        NeuralNetwork network;
+        Matrix stateToMatrix(const State& state) const {
+            Matrix mat = Matrix::Vector(4);
+            
+            mat = {
+                (float)state.agent_pos.x  / static_cast<float>(25),
+                (float)state.agent_pos.y  / static_cast<float>(25),
+                (float)state.target_pos.x / static_cast<float>(25),
+                (float)state.target_pos.y / static_cast<float>(25),
+            };
 
-        float discount = 0.95f;
-        float epsilon  = 0.95f;
-        float epsilon_decay = 0.99f;
+            return mat;
+        }
         
-        Environment() : network(
-            LinearType(State::input_dims, 32),
-            ActivationLayer<ReLU<>>(),
-            LinearType(32, 16),
+        Action act(const State& state) {
+            Matrix input = stateToMatrix(state);
+            Matrix res   = actor.forward(input);
+
+            uint32_t max_index = -1;
+            float max_value = -1e16f;
+
+            for (size_t i = 0; i < 4; ++i) {
+                if (res(i) > max_value) {
+                    max_index = i;
+                    max_value = res(i);
+                }
+            }
+            
+            return Action{
+                .direction = (Action::Direction)(max_index)
+            };
+        }
+
+        void train(const StepTp& step) {
+            Matrix input  = stateToMatrix(step.state);
+            Matrix output = Matrix::Vector(4);
+
+            output = actor.forward(input);
+
+            output((uint32_t)step.action.direction) = step.reward;
+
+            actor.train(input, output);
+        }
+
+        constexpr NeuralNetwork& Actor() {return actor;}
+
+    private:
+        // NeuralNetwork actor = NeuralNetwork(
+        //     LinearType(4, 32),
+        //     ActivationLayer<ReLU<>>(),
+        //     LinearType(32, 16),
+        //     ActivationLayer<ReLU<>>(),
+        //     LinearType(16, 8),
+        //     ActivationLayer<Tanh<>>(),
+        //     LinearType(8, 4)
+        // );
+
+        NeuralNetwork actor = NeuralNetwork(
+            LinearType(4, 16),
             ActivationLayer<ReLU<>>(),
             LinearType(16, 8),
             ActivationLayer<Tanh<>>(),
-            LinearType(8, Action::output_dims)
-        ) {}
+            LinearType(8, 4)
+        );
+};
 
-        void stepAgent() {
-            uint32_t action = 0;
-            
-            if (randFloat(0, 1) <= epsilon) {
-                action = rand() % 4;
-            } else {
-                Matrix output = network.forward(state.networkInput());
+template<uint32_t size = 25>
+struct Environment {
+        using StepTp = Step<State, Action>;
+    
+    public:
+        void reset() {
+            target_pos.x = rand() % size;
+            target_pos.y = rand() % size;
 
-                float highest = 1e-20f;
-                uint32_t highest_index = -1;
-
-                for (size_t i = 0; i < Action::output_dims; ++i) {
-                    
-                }
-            }
-
-
-            epsilon *= epsilon_decay;
+            do {
+                agent_pos.x = rand() % size;
+                agent_pos.y = rand() % size;
+            } while (target_pos == agent_pos);
         }
 
-        RewardReturn getReward() const {
-            float reward = 0.0f;
+        bool isDone() const {return (agent_pos == target_pos);}
 
-            if (state.finalPos == state.agentPos)
-                reward += 10.0f;
+        float reward(const State& previos, const State& current) {
+            float rew = 0.0f;
             
-            
-            return RewardReturn{
-                .reward = reward,
-                .done   = (state.finalPos == state.agentPos)
+            float prev_dist = static_cast<sf::Vector2f>(previos.target_pos - previos.agent_pos).length();
+            float curr_dist = static_cast<sf::Vector2f>(current.target_pos - current.agent_pos).length();
+
+            float delta_dist = prev_dist - curr_dist;
+            delta_dist /= static_cast<float>(size);
+
+            rew += delta_dist;
+
+            if (current.agent_pos == current.target_pos)
+                rew += 10.0f;
+            else
+                rew -= 0.1f;
+
+            if (rew <= 0.0f) rew *= 1.1f;
+            else rew *= 0.9f;
+
+            return rew;
+        }
+
+        StepTp step(const Action& action) {
+            StepTp step;
+            step.done = false;
+            step.action = action;
+            step.reward = 0.0f;
+
+            step.state = state();
+
+            if (action.direction == Action::Direction::Up)         {agent_pos += sf::Vector2i(0, -1);}
+            else if (action.direction == Action::Direction::Down)  {agent_pos += sf::Vector2i(0,  1);}
+            else if (action.direction == Action::Direction::Left)  {agent_pos += sf::Vector2i(-1, 0);}
+            else if (action.direction == Action::Direction::Right) {agent_pos += sf::Vector2i( 1, 0);}
+
+            if (agent_pos.x < 0 || agent_pos.y < 0 || agent_pos.x >= (int)size || agent_pos.y >= (int)size) {
+                step.reward -= 0.1f;
+                agent_pos.x = std::clamp((int)agent_pos.x, (int)0, (int)size-1);
+                agent_pos.y = std::clamp((int)agent_pos.y, (int)0, (int)size-1);
+            }
+
+            if (agent_pos == target_pos)
+                step.done = true;
+
+            step.next_state = state();
+            step.reward += reward(step.state, step.next_state);
+
+            return step;
+        }
+
+        State state() const {
+            return State{
+                .agent_pos  = agent_pos,
+                .target_pos = target_pos
             };
         }
 
         void draw(sf::RenderTarget& target, sf::RenderStates states) const {
             sf::RectangleShape obj;
-            obj.setSize(sf::Vector2f(
-                size.x / static_cast<float>(cells),
-                size.y / static_cast<float>(cells)
-            ));
-            obj.setFillColor(sf::Color::Red);
-            obj.setOutlineColor(sf::Color(31, 31, 31));
-            obj.setOutlineThickness(2);
-
-            for (size_t i = 0; i < cells; ++i) {
-                for (size_t j = 0; j < cells; ++j) {
-                    obj.setPosition(pos + sf::Vector2f(
-                        obj.getSize().x * i,
-                        obj.getSize().y * j
-                    ));
-
-                    if (i == state.finalPos.x && j == state.finalPos.y) obj.setFillColor(sf::Color::Green);
-                    else if (i == state.agentPos.x && j == state.agentPos.y) obj.setFillColor(sf::Color::Red);
-                    else obj.setFillColor(sf::Color(50, 50, 50));
-
-                    target.draw(obj);
-                }
-            }
+            obj.setFillColor(sf::Color(50, 50, 50));
+            
         }
 
+        template<uint32_t cells>
+        friend void renderEnv(sf::RenderWindow& window, const Environment<cells>& environment, const sf::Vector2f&, const sf::Vector2f&);
+
     private:
-        std::vector<RewardReturn> episode;
+        sf::Vector2i agent_pos  = {0, 0};
+        sf::Vector2i target_pos = {0, 0};
 };
 
 
+template<uint32_t cells>
+void renderEnv(sf::RenderWindow& window, const Environment<cells>& environment, const sf::Vector2f& center, const sf::Vector2f& size) {
+    sf::RectangleShape obj;
+    sf::Vector2f cell_size = sf::Vector2f(size.x / static_cast<float>(cells), size.y / static_cast<float>(cells));
+    obj.setSize(cell_size);
+    obj.setFillColor(sf::Color::Green);
+    obj.setOutlineThickness(2);
+    obj.setOutlineColor(sf::Color(31, 31, 31));
+
+    sf::Vector2f pos = center - size/2.0f;
+
+    for (uint32_t i = 0; i < cells; ++i) {
+        for (uint32_t j = 0; j < cells; ++j) {
+            sf::Vector2f cell_pos = pos + sf::Vector2f(cell_size.x * i, cell_size.y * j);
+            obj.setPosition(cell_pos);
+
+            if ((int)i == environment.agent_pos.x && (int)j == environment.agent_pos.y) obj.setFillColor(sf::Color::Green);
+            else if ((int)i == environment.target_pos.x && (int)j == environment.target_pos.y) obj.setFillColor(sf::Color::Red);
+            else obj.setFillColor(sf::Color(50, 50, 50));
+
+            window.draw(obj);
+        }
+    }
+}
 
 
 int main() {
@@ -180,31 +266,33 @@ int main() {
     window.setFramerateLimit(60);
     window.setVerticalSyncEnabled(true);
 
-
-    Environment env;
-    env.pos  = sf::Vector2f(static_cast<float>(WIDTH) / 2.0f - 900.0f/2.0f, static_cast<float>(HEIGHT) / 2.0f - 900.0f/2.0f);
-    env.size = sf::Vector2f(900, 900);
-
-
+    RL<State, Action, Agent, Environment<>> rl;
+    rl.max_steps = 30;
+    rl.Environment().reset();
+    
+    size_t step = 0;
+    uint32_t frame = 0;
 
     while (window.isOpen()) {
         while (const std::optional<sf::Event> event = window.pollEvent()) {if (event->is<sf::Event::Closed>()) window.close();}
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) window.close();
-
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) && frame % 3 == 0) {
-            env.stepAgent();
-        }
-
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::K)) {
-            for (size_t i = 0; i < 100; ++i) {
-                env.stepAgent();
-            }
-        }
        
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) && frame % 3 == 0) {
+            State state = rl.Environment().state();
+            Action action = rl.Agent().act(state);
+            rl.Environment().step(action);
 
+            if (rl.Environment().isDone() || step > rl.max_steps) {rl.Environment().reset(); step = 0;}
+            step++;
+        }
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::T)) {
+            rl.trainEpisode();
+            std::cout << "Epsilon: " << rl.epsilon << "\n";
+        }
         
         window.clear(sf::Color(31, 31, 31));
-        window.draw(env);
+        renderEnv(window, rl.Environment(), {WIDTH/2.0f, HEIGHT/2.0f}, {1000, 1000});
         window.display();
         frame++;
     }

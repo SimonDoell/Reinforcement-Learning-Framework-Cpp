@@ -12,6 +12,8 @@
 struct NeuralNetwork {
     public:
         float learning_rate = 0.01f;
+
+        NeuralNetwork() {}
         
         template<typename... Layers>
         NeuralNetwork(const Layers&... _layers) {

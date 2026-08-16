@@ -1,8 +1,8 @@
 #pragma once
 #include "Math.hpp"
 #include "BaseLayer.hpp"
-#include "SGD.hpp"
 #include "Initilizations.hpp"
+#include "SGD.hpp"
 
 template<typename Initilization = XavierInit, typename Optimizer = SGD>
 struct LinearLayer : public Layer {
