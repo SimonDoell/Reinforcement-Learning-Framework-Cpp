@@ -59,8 +59,8 @@ struct DQN {
         size_t target_update_freq = 64;  // After how many steps he weights from the q_network are copied to the weights from the target_network
 
         template<typename... Layers>
-        DQN(const Layers&... _layers)
-        : q_network(_layers...), target_network(_layers...) {}
+        DQN(const EnvironmentType& _environment, const Layers&... _layers)
+        : q_network(_layers...), target_network(_layers...), environment(_environment) {}
 
         void trainEpisode() {
             environment.reset();
@@ -117,6 +117,7 @@ struct DQN {
         }
 
         constexpr NeuralNetwork TargetNetwork() {return target_network;}
+        constexpr EnvironmentType Environment() {return environment;}
 
     private:
         NeuralNetwork q_network;  // online network
