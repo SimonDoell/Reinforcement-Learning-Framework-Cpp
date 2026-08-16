@@ -1,6 +1,10 @@
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include "Config.hpp"
+#include "NeuralNetwork.hpp"
+#include "DQN.hpp"
+
+
 
 
 

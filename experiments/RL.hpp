@@ -6,14 +6,6 @@
 #include "NeuralNetwork.hpp"
 
 
-template<typename Tp>
-concept StateT = true;
-
-template<typename Tp>
-concept ActionT = requires (Tp& action) {
-    { Tp::random() } -> std::same_as<Tp>;
-};
-
 template<typename StateType, typename ActionType>
 struct Step {
     StateType state;
@@ -21,6 +13,14 @@ struct Step {
     StateType next_state;
     float reward;
     bool done;
+};
+
+template<typename Tp>
+concept StateT = true;
+
+template<typename Tp>
+concept ActionT = requires (Tp& action) {
+    { Tp::random() } -> std::same_as<Tp>;
 };
 
 template<typename Tp, typename StateType, typename ActionType>

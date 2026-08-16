@@ -49,6 +49,48 @@ struct BaseMatrix {
             return result;
         }
 
+        // Component-wise multiplication
+        constexpr BaseMatrix operator*(const BaseMatrix& other) const noexcept {
+            BaseMatrix result = BaseMatrix(rows, cols);
+
+            for (size_t i = 0; i < rows; ++i)
+                for (size_t j = 0; j < cols; ++j)
+                    result(i, j) = (*this)(i, j) * other(i, j);
+
+            return result;
+        }
+
+        // Component-wise dividing
+        constexpr BaseMatrix operator/(const BaseMatrix& other) const noexcept {
+            BaseMatrix result = BaseMatrix(rows, cols);
+
+            for (size_t i = 0; i < rows; ++i)
+                for (size_t j = 0; j < cols; ++j)
+                    result(i, j) = (*this)(i, j) / other(i, j);
+
+            return result;
+        }
+
+        constexpr BaseMatrix operator*(float factor) const noexcept {
+            BaseMatrix result = BaseMatrix(rows, cols);
+
+            for (size_t i = 0; i < rows; ++i)
+                for (size_t j = 0; j < cols; ++j)
+                    result(i, j) = (*this)(i, j) * factor;
+
+            return result;
+        }
+
+        constexpr BaseMatrix operator/(float factor) const noexcept {
+            BaseMatrix result = BaseMatrix(rows, cols);
+
+            for (size_t i = 0; i < rows; ++i)
+                for (size_t j = 0; j < cols; ++j)
+                    result(i, j) = (*this)(i, j) / factor;
+
+            return result;
+        }
+
         constexpr BaseMatrix& operator+=(const BaseMatrix& other) noexcept {
             (*this) = (*this) + other;
             return *this;
@@ -56,6 +98,26 @@ struct BaseMatrix {
 
         constexpr BaseMatrix& operator-=(const BaseMatrix& other) noexcept {
             (*this) = (*this) - other;
+            return *this;
+        }
+
+        constexpr BaseMatrix& operator*=(const BaseMatrix& other) noexcept {
+            (*this) = (*this) * other;
+            return *this;
+        }
+
+        constexpr BaseMatrix& operator/=(const BaseMatrix& other) noexcept {
+            (*this) = (*this) / other;
+            return *this;
+        }
+
+        constexpr BaseMatrix& operator*=(float factor) noexcept {
+            (*this) = (*this) * factor;
+            return *this;
+        }
+
+        constexpr BaseMatrix& operator/=(float factor) noexcept {
+            (*this) = (*this) / factor;
             return *this;
         }
 

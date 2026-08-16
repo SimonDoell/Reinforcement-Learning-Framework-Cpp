@@ -20,6 +20,8 @@ struct NeuralNetwork {
             (layers.emplace_back(std::make_unique<Layers>(std::move(_layers))), ...);
         }
 
+        // NeuralNetwork& operator=(const NeuralNetwork& other) = default;
+
         Matrix forward(Matrix activations) {
             for (size_t i = 0; i < layers.size(); ++i) {
                 layers[i]->forward(activations);
