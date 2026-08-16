@@ -15,19 +15,19 @@ struct Step {
     bool done;
 };
 
-template<typename Tp, typename StateType, typename ActionType>
-concept InstructionT = requires (const StateType& s, const ActionType& a) {
-    { Tp::stateToInput(s)   } -> std::same_as<Matrix>;
-    { Tp::outputToAction(a) } -> std::same_as<ActionType>;
-};
-
 template<typename Tp>
 concept StateT = true;
 
 template<typename Tp>
 concept ActionT = requires (const Tp& a) {
     { Tp::random()   } -> std::same_as<Tp>;
-    { a.mapToIndex() } -> std::same_as<uint32_t>;
+};
+
+template<typename Tp, typename StateType, typename ActionType>
+concept InstructionT = requires (const StateType& s, const ActionType& a, const Matrix& m) {
+    { Tp::stateToInput(s)   } -> std::same_as<Matrix>;
+    { Tp::outputToAction(m) } -> std::same_as<ActionType>;
+    { Tp::actionToIndex(a)  } -> std::same_as<uint32_t>;
 };
 
 template<typename Tp, typename StateType, typename ActionType>
@@ -48,21 +48,19 @@ struct DQN {
         using StepTp = Step<StateType, ActionType>;
     
     public:
-        size_t max_steps    = 100;       // Maximum steps in a episode before forcefully terminating
+        // ----- Hyperparamaters -----
+        size_t max_steps    = 128;       // Maximum steps in a episode before forcefully terminating
         float discount      = 0.99f;     // discount factor accounting for future (accumulative) rewards
         float epsilon       = 0.99f;     // initial epsilon factor / randomness in taking action / exploration rate
         float min_epsilon   = 0.05f;     // minimum chance of the agent taking a random action
         float epsilon_decay = 0.99f;     // the amount epsilon decays per episode
         size_t batch_size   = 32;        // how many transitions from the replay buffer are sampled each step in the episode
         size_t buffer_size  = 10'000;    // How big the deque replay buffer is, before discarding old transitions / steps from the replay buffer
-        size_t target_update_freq = 100; // After how many steps he weights from the q_network are copied to the weights from the target_network
-        
-        DQN(NeuralNetwork structure)
-        : q_network(structure), target_network(structure) {}
+        size_t target_update_freq = 64;  // After how many steps he weights from the q_network are copied to the weights from the target_network
 
-        // void warmup() {
-        //     
-        // }
+        template<typename... Layers>
+        DQN(const Layers&... _layers)
+        : q_network(_layers...), target_network(_layers...) {}
 
         void trainEpisode() {
             environment.reset();
@@ -76,9 +74,6 @@ struct DQN {
 
                 while (replay_buffer.size() > buffer_size)
                     replay_buffer.pop_front();
-                
-                if (step.done) break;
-
 
                 if (replay_buffer.size() >= buffer_size) {
                     // choose and train on mini batch
@@ -104,7 +99,7 @@ struct DQN {
                         Matrix online_q = q_network.forward(
                             InstructionType::stateToInput(step.state));
 
-                        online_q(step.action.mapToIndex()) = target;
+                        online_q(InstructionType::actionToIndex(step.action)) = target;
 
                         q_network.train(InstructionType::stateToInput(step.state), online_q);
                     }
@@ -113,9 +108,12 @@ struct DQN {
                 if (++total_steps % target_update_freq == 0) {
                     target_network = q_network;
                 }
+
+                if (step.done) break;
             }
 
-            epsilon = std::max(epsilon * epsilon_decay, min_epsilon);
+            if (replay_buffer.size() >= buffer_size)
+                epsilon = std::max(epsilon * epsilon_decay, min_epsilon);
         }
 
         constexpr NeuralNetwork TargetNetwork() {return target_network;}

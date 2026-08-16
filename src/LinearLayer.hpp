@@ -21,19 +21,23 @@ struct LinearLayer : public Layer {
             });
         }
         
-        void forward(Matrix& x) {
+        void forward(Matrix& x) override {
             activation_cache = x;
 
             // z = W * x + b
             x = matmul(weights, x) + biases;
         }
 
-        void backward(Matrix& gradient, float lr) {
+        void backward(Matrix& gradient, float lr) override {
             Matrix prev_gradient = matmul(weights.transposed(), gradient);
 
             optimizer.update(weights, biases, activation_cache, gradient, lr);
 
             gradient = prev_gradient;
+        }
+
+        std::unique_ptr<Layer> Clone() override {
+            return std::make_unique<LinearLayer<Initilization, Optimizer>>(*this);
         }
 
     private:

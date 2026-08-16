@@ -20,6 +20,14 @@ struct NeuralNetwork {
             (layers.emplace_back(std::make_unique<Layers>(std::move(_layers))), ...);
         }
 
+        NeuralNetwork(const NeuralNetwork& other) {
+            copyIntoThis(other);
+        }
+        NeuralNetwork& operator=(const NeuralNetwork& other) {
+            copyIntoThis(other);
+            return *this;
+        }
+
         // NeuralNetwork& operator=(const NeuralNetwork& other) = default;
 
         Matrix forward(Matrix activations) {
@@ -41,4 +49,12 @@ struct NeuralNetwork {
     
     private:
         std::vector<std::unique_ptr<Layer>> layers;
+
+        constexpr void copyIntoThis(const NeuralNetwork& other) {
+            layers.clear();
+
+            for (size_t i = 0; i < other.layers.size(); ++i) {
+                layers.emplace_back(other.layers[i]->Clone());
+            }
+        }
 };

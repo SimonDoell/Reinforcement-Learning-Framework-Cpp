@@ -6,6 +6,75 @@
 
 
 
+struct Action {
+        enum class MoveDir {Up=0, Down=1, Left=2, Right=3};
+    
+    public:
+        MoveDir direction;
+
+        static Action random() {
+            return Action{.direction = (MoveDir)(rand() % 4)};
+        }
+};
+
+struct State {
+    sf::Vector2i agent_pos;
+    sf::Vector2i target_pos;
+};
+
+
+struct Instructions {
+    static Matrix stateToInput(const State& state) {
+        Matrix res = Matrix::Vector(4);
+
+        res = {
+            (float)state.agent_pos.x,
+            (float)state.agent_pos.y,
+            (float)state.target_pos.x,
+            (float)state.target_pos.y
+        };
+
+        return res;
+    }
+
+    static Action outputToAction(const Matrix& matrix) {
+        Action action;
+
+        float max_val = -1e16f;
+        size_t max_index = -1;
+
+        for (size_t i = 0; i < 4; ++i) {
+            if (matrix(i) >= max_val) {
+                max_index = i;
+                max_val = matrix(i);
+            }
+        }
+
+        return Action{.direction = (Action::MoveDir)max_index};
+    }
+
+    static uint32_t actionToIndex(const Action& action) {
+        return (uint32_t)action.direction;
+    }
+};
+
+
+struct Environment {
+        using StepTp = Step<State, Action>;
+    
+    public:
+        void reset() {}
+
+        StepTp step(const Action& action) {
+            return StepTp{};
+        }
+
+        State state() {
+            return State{};
+        }
+};
+
+
 
 
 int main() {
@@ -14,6 +83,16 @@ int main() {
     window.setView(view);
     window.setFramerateLimit(60);
     window.setVerticalSyncEnabled(true);
+
+    using LinearType = LinearLayer<XavierInit, Adam<>>;
+
+    DQN<State, Action, Instructions, Environment> dqn(
+        LinearType(4, 16),
+        ActivationLayer<ReLU<>>(),
+        LinearType(16, 8),
+        ActivationLayer<Tanh<>>(),
+        LinearType(8, 4)
+    );
 
 
     while (window.isOpen()) {
