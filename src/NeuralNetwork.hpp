@@ -23,12 +23,11 @@ struct NeuralNetwork {
         NeuralNetwork(const NeuralNetwork& other) {
             copyIntoThis(other);
         }
+        
         NeuralNetwork& operator=(const NeuralNetwork& other) {
             copyIntoThis(other);
             return *this;
         }
-
-        // NeuralNetwork& operator=(const NeuralNetwork& other) = default;
 
         Matrix forward(Matrix activations) {
             for (size_t i = 0; i < layers.size(); ++i) {

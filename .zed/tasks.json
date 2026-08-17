@@ -7,5 +7,14 @@
     "reveal": "always",
     "hide": "on_success",
     "show_summary": false
+  },
+  {
+    "label": "Build and Test",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "command": "./scripts/build-test.sh && ./build/Boilerplate",
+    "use_new_terminal": false,
+    "reveal": "always",
+    "hide": "on_success",
+    "show_summary": false
   }
 ]

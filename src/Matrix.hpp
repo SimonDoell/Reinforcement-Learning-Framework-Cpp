@@ -15,8 +15,7 @@ struct BaseMatrix {
         using const_pointer    = const Tp*;
 
     public:
-        BaseMatrix() : rows(1), cols(1) {resize(1, 1);}
-        BaseMatrix(size_type _rows, size_type _cols)
+        BaseMatrix(size_type _rows = 1, size_type _cols = 1)
         : rows(_rows), cols(_cols) {resize(_rows, _cols);}
 
         constexpr BaseMatrix& operator=(const std::vector<value_type>& _values) noexcept {
@@ -30,9 +29,8 @@ struct BaseMatrix {
             
             BaseMatrix result = BaseMatrix(rows, cols);
 
-            for (size_t i = 0; i < rows; ++i)
-                for (size_t j = 0; j < cols; ++j)
-                    result(i, j) = (*this)(i, j) + other(i, j);
+            for (uint32_t i = 0; i < rows * cols; ++i)
+                result.values[i] = this->values[i] + other.values[i];
 
             return result;
         }
@@ -42,31 +40,32 @@ struct BaseMatrix {
             
             BaseMatrix result = BaseMatrix(rows, cols);
 
-            for (size_t i = 0; i < rows; ++i)
-                for (size_t j = 0; j < cols; ++j)
-                    result(i, j) = (*this)(i, j) - other(i, j);
+            for (uint32_t i = 0; i < rows * cols; ++i)
+                result.values[i] = this->values[i] - other.values[i];
 
             return result;
         }
 
         // Component-wise multiplication
         constexpr BaseMatrix operator*(const BaseMatrix& other) const noexcept {
+            assert(isSameShape(other));
+            
             BaseMatrix result = BaseMatrix(rows, cols);
 
-            for (size_t i = 0; i < rows; ++i)
-                for (size_t j = 0; j < cols; ++j)
-                    result(i, j) = (*this)(i, j) * other(i, j);
+            for (uint32_t i = 0; i < rows * cols; ++i)
+                result.values[i] = this->values[i] * other.values[i];
 
             return result;
         }
 
         // Component-wise dividing
         constexpr BaseMatrix operator/(const BaseMatrix& other) const noexcept {
+            assert(isSameShape(other));
+            
             BaseMatrix result = BaseMatrix(rows, cols);
 
-            for (size_t i = 0; i < rows; ++i)
-                for (size_t j = 0; j < cols; ++j)
-                    result(i, j) = (*this)(i, j) / other(i, j);
+            for (uint32_t i = 0; i < rows * cols; ++i)
+                result.values[i] = this->values[i] / other.values[i];
 
             return result;
         }
@@ -74,9 +73,8 @@ struct BaseMatrix {
         constexpr BaseMatrix operator*(float factor) const noexcept {
             BaseMatrix result = BaseMatrix(rows, cols);
 
-            for (size_t i = 0; i < rows; ++i)
-                for (size_t j = 0; j < cols; ++j)
-                    result(i, j) = (*this)(i, j) * factor;
+            for (uint32_t i = 0; i < rows * cols; ++i)
+                result.values[i] = this->values[i] * factor;
 
             return result;
         }
@@ -84,9 +82,8 @@ struct BaseMatrix {
         constexpr BaseMatrix operator/(float factor) const noexcept {
             BaseMatrix result = BaseMatrix(rows, cols);
 
-            for (size_t i = 0; i < rows; ++i)
-                for (size_t j = 0; j < cols; ++j)
-                    result(i, j) = (*this)(i, j) / factor;
+            for (uint32_t i = 0; i < rows * cols; ++i)
+                result.values[i] = this->values[i] / factor;
 
             return result;
         }
@@ -128,16 +125,16 @@ struct BaseMatrix {
         constexpr BaseMatrix transposed() const noexcept {
             BaseMatrix result = BaseMatrix(cols, rows);
 
-            for (size_t i = 0; i < rows; ++i)
-                for (size_t j = 0; j < cols; ++j)
+            for (uint32_t i = 0; i < rows; ++i)
+                for (uint32_t j = 0; j < cols; ++j)
                     result(j, i) = (*this)(i, j);
 
             return result;
         }
 
-        constexpr reference operator()(size_type _row)                 noexcept {return values[getIndex(_row, 0)];}
-        constexpr reference operator()(size_type _row, size_type _col) noexcept {return values[getIndex(_row, _col)];}
-        constexpr const_reference operator()(size_type _row)                 const noexcept {return values[getIndex(_row, 0)];}
+        constexpr reference operator()(size_type _row)                             noexcept {return values[getIndex(_row,    0)];}
+        constexpr reference operator()(size_type _row, size_type _col)             noexcept {return values[getIndex(_row, _col)];}
+        constexpr const_reference operator()(size_type _row)                 const noexcept {return values[getIndex(_row,    0)];}
         constexpr const_reference operator()(size_type _row, size_type _col) const noexcept {return values[getIndex(_row, _col)];}
 
         void resize(size_type _rows, size_type _cols) {
@@ -148,15 +145,15 @@ struct BaseMatrix {
 
         template<typename F>
         void forEach(F&& f) noexcept {
+            static_assert((std::is_invocable_r_v<void, F, float&, uint32_t, uint32_t> || std::is_invocable_r_v<void, F, float&>));
+
             constexpr bool withoutRowCol = std::is_invocable_r_v<void, F, float&>;
-            
-            assert((std::is_invocable_r_v<void, F, float&, size_type, size_type> || std::is_invocable_r_v<void, F, float&>));
 
             if constexpr (withoutRowCol) {
                 for (float& v : values) f(v);
             } else {
-                for (size_t i = 0; i < rows; ++i)
-                    for (size_t j = 0; j < cols; ++j)
+                for (uint32_t i = 0; i < rows; ++i)
+                    for (uint32_t j = 0; j < cols; ++j)
                         f(values[getIndex(i, j)], i, j);
             }
         }

@@ -8,6 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-O0 -g -Werror -Wall -Wno-unused)
+    enable_testing()
+    add_subdirectory(tests)
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     add_compile_options(-O3 -Werror -Wall -Wno-unused)
 endif()
