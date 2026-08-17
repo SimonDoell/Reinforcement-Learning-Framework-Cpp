@@ -113,8 +113,7 @@ struct DQN {
                 if (step.done) break;
             }
 
-            if (replay_buffer.size() >= buffer_size)
-                epsilon = std::max(epsilon * epsilon_decay, min_epsilon);
+            epsilon = std::max(epsilon * epsilon_decay, min_epsilon);
         }
 
         void setLearningRate(float lr) {
