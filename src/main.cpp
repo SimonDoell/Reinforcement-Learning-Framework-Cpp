@@ -28,10 +28,10 @@ struct Instructions {
         Matrix res = Matrix::Vector(4);
 
         res = {
-            (float)state.agent_pos.x,
-            (float)state.agent_pos.y,
-            (float)state.target_pos.x,
-            (float)state.target_pos.y
+            (float)state.agent_pos.x  / 25.0f,
+            (float)state.agent_pos.y  / 25.0f,
+            (float)state.target_pos.x / 25.0f,
+            (float)state.target_pos.y / 25.0f,
         };
 
         return res;
@@ -125,7 +125,10 @@ struct Environment {
         }
 
         State state() {
-            return State{};
+            return State{
+                .agent_pos  = agent_pos,
+                .target_pos = target_pos
+            };
         }
 
         friend void renderEnv(sf::RenderWindow& window, const Environment& environment, const sf::Vector2f& center, const sf::Vector2f& size);
@@ -175,11 +178,14 @@ int main() {srand(time(0));
     using LinearType = LinearLayer<XavierInit, Adam<>>;
 
     DQN<State, Action, Instructions, Environment> dqn(Environment(25),
-        LinearType(4, 8),
-        ActivationLayer<Tanh<>>(),
-        LinearType(8, 4)
+        LinearType(4, 64),
+        ActivationLayer<ReLU<>>(),
+        LinearType(64, 64),
+        ActivationLayer<ReLU<>>(),
+        LinearType(64, 4)
     );
-
+    
+    dqn.setLearningRate(0.0001f);
     dqn.buffer_size = 500;
     dqn.discount    = 0.95f;
     dqn.max_steps   = 50;

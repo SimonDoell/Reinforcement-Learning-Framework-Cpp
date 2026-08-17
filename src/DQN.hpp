@@ -57,6 +57,7 @@ struct DQN {
         size_t batch_size   = 32;        // how many transitions from the replay buffer are sampled each step in the episode
         size_t buffer_size  = 10'000;    // How big the deque replay buffer is, before discarding old transitions / steps from the replay buffer
         size_t target_update_freq = 64;  // After how many steps he weights from the q_network are copied to the weights from the target_network
+        size_t learning_start     = 128; // After how many entries in the replay buffer the agent starts to learn from the replay buffer
 
         template<typename... Layers>
         DQN(const EnvironmentType& _environment, const Layers&... _layers)
@@ -75,7 +76,7 @@ struct DQN {
                 while (replay_buffer.size() > buffer_size)
                     replay_buffer.pop_front();
 
-                if (replay_buffer.size() >= buffer_size) {
+                if (replay_buffer.size() >= learning_start) {
                     // choose and train on mini batch
                     for (size_t b = 0; b < batch_size; ++b) {
                         StepTp step = replay_buffer[rand() % replay_buffer.size()];
@@ -114,6 +115,11 @@ struct DQN {
 
             if (replay_buffer.size() >= buffer_size)
                 epsilon = std::max(epsilon * epsilon_decay, min_epsilon);
+        }
+
+        void setLearningRate(float lr) {
+            q_network.learning_rate      = lr;
+            target_network.learning_rate = lr;
         }
 
         constexpr NeuralNetwork& TargetNetwork() {return target_network;}
