@@ -116,8 +116,8 @@ struct DQN {
                 epsilon = std::max(epsilon * epsilon_decay, min_epsilon);
         }
 
-        constexpr NeuralNetwork TargetNetwork() {return target_network;}
-        constexpr EnvironmentType Environment() {return environment;}
+        constexpr NeuralNetwork& TargetNetwork() {return target_network;}
+        constexpr EnvironmentType& Environment() {return environment;}
 
     private:
         NeuralNetwork q_network;  // online network

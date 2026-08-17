@@ -175,9 +175,7 @@ int main() {srand(time(0));
     using LinearType = LinearLayer<XavierInit, Adam<>>;
 
     DQN<State, Action, Instructions, Environment> dqn(Environment(25),
-        LinearType(4, 16),
-        ActivationLayer<ReLU<>>(),
-        LinearType(16, 8),
+        LinearType(4, 8),
         ActivationLayer<Tanh<>>(),
         LinearType(8, 4)
     );
@@ -195,6 +193,15 @@ int main() {srand(time(0));
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::T)) {
             dqn.trainEpisode();
             std::cout << "Epsilon: " << dqn.epsilon << "\n";
+        }
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space)) {
+            NeuralNetwork& target_network = dqn.TargetNetwork();
+            Environment& environment      = dqn.Environment();
+
+            State state = environment.state();
+            Action action = Instructions::outputToAction(target_network.forward(Instructions::stateToInput(state)));
+            environment.step(action);
         }
         
         window.clear(sf::Color(31, 31, 31));
