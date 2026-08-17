@@ -1,8 +1,9 @@
+#include <gtest/gtest.h>
+#include <iostream>
 #include "NeuralNetwork.hpp"
 
-int main() {
-    
 
-
-    return 0;
+TEST(SmokeTest, PrintsValue)
+{
+    std::cout << "Test!\n";
 }
